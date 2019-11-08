@@ -1,0 +1,114 @@
+##############################################################################
+# The open source software R is used to obtain the murder rate in some 
+# police districts in Puerto Rico. 
+
+# R o R Studio for Windows can be downloaded from
+# https://cran.r-project.org/bin/windows/base/ or https://www.rstudio.com/products/rstudio/download3/. 
+# Note that in addition to the crime data we need demographic 
+# data per district for us to calculate the murder statistics in Puerto Rico for 2015.
+# This code runs in R 3.3.1 since Auguts 31, 2016.In case of an error, 
+# verify your version of the data R, or packages since posible changes might have occured.
+# Created by: Roberto Rivera, roberto.rivera30@upr.edu, 
+# for context see https://www.tandfonline.com/doi/full/10.1080/10691898.2019.1669506?scroll=top&needAccess=true
+
+# NOTE: Every line that begins with "#" the program detects it as a comment.
+
+# First, the required tools are prepared to work in the case study
+
+# A function will be created to install or load required packages for this application. The provided function is from: https://gist.github.com/stevenworthington/3178163
+ipak <- function(pkg){
+  new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+  if (length(new.pkg)) 
+    install.packages(new.pkg, dependencies = TRUE)
+  sapply(pkg, require, character.only = TRUE)
+}
+
+packages<-"data.table"
+ipak(packages) # install or load needed packages
+
+
+
+# the next two lines below will retrieve crime and demographic data. Note that website links may change in time. If an error is given with the two commands below
+# either: get new links for the data (if available), or used the data set files made available with the commented commands.
+
+
+d.demo=fread("https://indicadores.pr/dataset/2eabdd0d-625b-4936-af25-5d0258e86ae4/resource/8a2b3a66-7248-4c21-9631-545df1ffc2d9/download/estimados_anuales_poblacionales_por_municipio_y_puerto_rico_annual_population_estimates_for_puer.csv") # Upload the demographic database to R
+d.ic=fread("https://data.pr.gov/api/views/pzaz-tkx9/rows.csv") #Upload to R the crime data
+
+#If data not available online try the following lines
+#setwd("C:/PATH")
+#d.demo=read.csv("estimados_anuales_poblacionales_por_municipio_y_puerto_rico_annual_population_estimates_for_puer.csv",header=T)
+#d.ic=read.csv("Crime_Incidence.csv",header=T)
+
+# With the "colnames" function we changed the name of each variable in the database that we just 
+# uploaded. This is a necessary step, since some of the characters did not upload as they should.
+colnames(d.demo) <- c('Year',"Adjuntas","Aguada","Aguadilla","Aguas.Buenas","Aibonito","Anasco","Arecibo","Arroyo","Barceloneta","Barranquitas","Bayamon","Cabo.Rojo",
+                      "Caguas","Camuy","Canovanas","Carolina","Catano","Cayey","Ceiba","Ciales","Cidra","Coamo","Comerio","Corozal","Culebra","Dorado","Fajardo",
+                      "Florida", "Guanica","Guayama","Guayanilla","Guaynabo","Gurabo","Hatillo","Hormigueros","Humacao","Isabela","Jayuya","Juana.Diaz","Juncos",
+                      "Lajas","Lares","Las.Marias","Las.Piedras","Loiza","Luquillo","Manati","Maricao","Maunabo","Mayaguez","Moca","Morovis","Naguabo","Naranjito",
+                      "Orocovis","patillas","Penuelas","Ponce","Quebradillas","Rincon","Rio.Grande","Sabana.Grande","Salinas","San.German","San.Juan","San.Lorenzo",
+                      "San.Sebastian","Santa.Isabel","Toa.Alta","Toa.Baja","Trujillo.Alto","Utuado","Vega.Alta","Vega.Baja","Vieques","Villalba","Yabucoa","Yauco","Total")
+
+colnames(d.ic)<-c("Date","Hour","Number_Crime","Crime","X","Y","location","Area")
+
+df.by.year= split(d.demo,f=d.demo$Year) # Create a series of lists which divide the data per year.
+
+# The crimes available are:
+#   Murders = "Asesinato"                            Break-ins = "Escalamiento"
+#   Aggravated aggression = "Agresion Agravada"      Robbery = "Robo"
+#   Stolen vehicles = "Vehiculo Hurtado"             Rapes = "Violacion"
+#   Malicious fires = "Incendio Malicioso"           Illegal appropriation = "Apropiacion ilegal"
+#   Others = "Otros"
+
+# For this case study we are going to calculate the murder rates for 2015.
+# To obtain the rate for other crimes substitute the word "Asesinato" below.
+x="Asesinato" # Set the crime.
+
+# To obtain the results for another year, substitute "2015" for 2012, 2013, or 2014 in the following two lines.
+y=2015 # Set the date.
+demo.y <- as.data.frame(df.by.year$`2015`) # Create a database with the crimes for the selected year.
+
+# We define dates properly for R
+d.crime <- as.Date(d.ic$Date[agrep(pattern = x ,d.ic$Crime,ignore.case = TRUE)])
+
+# Now turn the dates into a format that only contains years. 
+y.crime <- format(d.crime,format= "%Y")
+
+# Extracted the crimes and the police areas to create a subset.
+cases <- d.ic$Crime[agrep(pattern = x ,d.ic$Crime,ignore.case=TRUE)]
+areas <- d.ic$Area[agrep(pattern = x , d.ic$Crime, ignore.case = TRUE)]
+
+# Created a subset of the data we want to analyze.
+ic.crime <-data.frame(Date=d.crime, Year=y.crime, Police.Area=areas, Crime=cases)
+
+# Subset crimes for year of interest.
+crime.y <- subset(ic.crime, Year==y)
+
+# Calculated the crime rate per area.
+dy <- table(crime.y$Police.Area) # Create a table of the crimes in 2015.
+dy <- as.data.frame(dy) # Turn the table into a data base about crimes in 2015.
+
+
+# Now that the data is divided and organized, calculate the rate for the specific crime that you wish to study.
+# The generic formula is:
+#(región)(año)=d(año)$Freq[agrep(pattern = "(región)",dy$Var1)]/(sumatoria de los pueblos que conponen la región)*100000
+
+san.juan.y <- dy$Freq[agrep(pattern = "San Juan",dy$Var1)]/demo.y$San.Juan*100000
+
+mayaguez.y <- dy$Freq[agrep(pattern = "Mayaguez",dy$Var1)]/(demo.y$Mayaguez+demo.y$Hormigueros+demo.y$Anasco+demo.y$Cabo.Rojo+demo.y$Las.Marias+demo.y$Lajas+
+                                                              demo.y$Maricao+demo.y$San.German+demo.y$Sabana.Grande)*100000
+
+fajardo.y <- dy$Freq[agrep(pattern = "Fajardo",dy$Var1)]/(demo.y$Fajardo+demo.y$Luquillo+demo.y$Ceiba+demo.y$Rio.Grande+demo.y$Vieques+demo.y$Culebra)*100000
+
+ponce.y <- dy$Freq[agrep(pattern = "Ponce",dy$Var1)]/(demo.y$Yauco+demo.y$Juana.Diaz+demo.y$Santa.Isabel+demo.y$Villalba+demo.y$Penuelas+demo.y$Guayanilla+
+                                                        demo.y$Guanica+demo.y$Ponce)*100000
+
+# We organize output into a dataframe
+d.region <- data.frame(San.Juan=san.juan.y,Mayaguez=mayaguez.y,Fajardo=fajardo.y,Ponce=ponce.y)
+d.region # Print the created data base
+
+
+ic.pr.y <- sum(dy$Freq)/demo.y$Total*100000 # Calculate the rate of Puerto Rico for the year 2015
+ic.pr.y # Print the rate for all of Puerto Rico.
+
+# Created by:  
