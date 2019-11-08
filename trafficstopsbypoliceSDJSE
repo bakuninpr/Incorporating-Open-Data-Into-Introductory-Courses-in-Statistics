@@ -1,0 +1,116 @@
+##############################################################################
+# The open source software R is used to violation San Diego police stop data.
+#
+# R o R Studio for Windows can be downloaded from
+# https://cran.r-project.org/bin/windows/base/ or https://www.rstudio.com/products/rstudio/download3/. 
+# This code runs with R 3.5.3 since May, 2019. In case of error,
+# verify your version of R and the data; changes may have occurred.
+# Created by: Roberto Rivera, roberto.rivera30@upr.edu,
+# for context see https://www.tandfonline.com/doi/full/10.1080/10691898.2019.1669506?scroll=top&needAccess=true
+
+# although it makes more sense to assess searches from moving violations, for visualization purposes unfiltered data is better (same result anyway)
+
+# NOTE: Each line that starts with "#" R detects as a comment.
+
+
+# First a function is created to make packages available. Function provided at https://gist.github.com/stevenworthington/3178163
+ipak <- function(pkg){
+  new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+  if (length(new.pkg)) 
+    install.packages(new.pkg, dependencies = TRUE)
+  sapply(pkg, require, character.only = TRUE)
+}
+
+# Now we run the function
+packages <- c("data.table", "reshape2", "ggplot2","dplyr") # este paquete se usan para cargar la data de data.pr.gov al programa R
+ipak(packages) #install or activate packages
+
+
+
+
+
+
+#library(data.table)
+all_data<-fread("http://seshat.datasd.org/pd/vehicle_stops_2016_datasd.csv",data.table=FALSE,stringsAsFactors=T)
+
+#If data not available online try the following lines
+#setwd("C:/PATH")
+#all_data<-read.csv("vehicle_stops_2016_datasd.csv", header=TRUE, sep=",", na.strings=" ")
+
+#there appears to be no duplicates
+data.dup <- all_data[duplicated(all_data) | duplicated(all_data, fromLast = TRUE), ] #empty
+
+
+library(reshape2)
+all_data2<-all_data[,c("subject_race","subject_sex","searched")]
+
+levels(all_data2$subject_race)[levels(all_data2$subject_race)%in%c("A","C","D","F","G","J","K","L","V")] <- "A"
+levels(all_data2$subject_race)[levels(all_data2$subject_race)%in%c("I","O","P","S","U","X","Z")] <- "O"
+levels(all_data2$subject_race)[levels(all_data2$subject_race)%in%c("A")] <- "Asian"
+levels(all_data2$subject_race)[levels(all_data2$subject_race)%in%c("B")] <- "Black"
+levels(all_data2$subject_race)[levels(all_data2$subject_race)%in%c("H")] <- "Hispanic"
+levels(all_data2$subject_race)[levels(all_data2$subject_race)%in%c("O")] <- "Other"
+levels(all_data2$subject_race)[levels(all_data2$subject_race)%in%c("W")] <- "White"
+levels(all_data2$subject_sex)[levels(all_data2$subject_sex)%in%c(" ","X")] <- " "
+levels(all_data2$searched)[levels(all_data2$searched)%in%c("N","n")] <- "No"
+levels(all_data2$searched)[levels(all_data2$searched)%in%c("Y")] <- "Yes"
+levels(all_data2$searched)[levels(all_data2$searched)%in%c("\\"," ")] <- " "
+all_data2$subject_race[grepl("^\\s*$", all_data2$subject_race)] <- NA
+all_data2$subject_sex[grepl("^\\s*$", all_data2$subject_sex)] <- NA
+all_data2$searched[grepl("^\\s*$", all_data2$searched)] <- NA
+all_data2 <- droplevels(all_data2[!grepl("^\\s*$", all_data2$subject_race),,drop=FALSE] )
+summary(all_data2)
+
+library(ggplot2)
+
+all_data3<-subset(all_data2, !is.na(subject_race))
+all_data3<-subset(all_data3, !is.na(subject_sex))
+all_data3<-subset(all_data3, !is.na(searched)) # I can comment this line out if I want search NA stacks. % of NA seems to be constant bw races/genders
+
+### Over all genders
+theTable <- within(all_data3, 
+                   subject_race <- factor(subject_race, 
+                                      levels=names(sort(table(subject_race), 
+                                                        decreasing=TRUE))))
+ggplot(theTable, aes(x=subject_race, fill = searched)) +
+    #geom_bar(position = "stack", stat = "identity") +
+    geom_bar()+xlab("Race") + ylab("Count") + #ggtitle("Vehicle Stops in San Diego")+
+theme(axis.line.y=element_blank(),
+legend.text=element_text(size=14),
+          axis.text.x=element_text(size=12,angle=90),
+          #axis.ticks.y=element_blank(),
+          #axis.title.y=element_blank(),
+          axis.title=element_text(size=14),
+          panel.grid.minor.y=element_blank(),
+          panel.grid.major.y=element_blank(),
+          panel.grid.minor.x=element_blank(),
+          panel.grid.major.x=element_blank())+
+scale_fill_manual("legend", values = c("No" = "darkgoldenrod1", "Yes" = "indianred4"))+
+guides(fill=guide_legend(title="Searched"))
+#dev.print(device=postscript, "trafficstopssearchesSDoverall.eps", onefile=FALSE, horizontal=FALSE)
+
+# Now by gender
+levels(theTable$subject_sex)[levels(theTable$subject_sex)%in%c("F","M")] <- c("Female","Male")
+ggplot(theTable, aes(x=subject_race, fill = searched)) +
+    #geom_bar(position = "stack", stat = "identity") +
+    geom_bar()+facet_wrap( ~ subject_sex)+xlab("Race") + ylab("Count") + #ggtitle("Vehicle Stops in San Diego")+
+theme(axis.line.y=element_blank(),
+strip.text.x = element_text(size = 14),
+legend.text=element_text(size=14),
+          axis.text.x=element_text(size=12,angle=90),
+          #axis.ticks.y=element_blank(),
+          #axis.title.y=element_blank(),
+          axis.title=element_text(size=14),
+          panel.grid.minor.y=element_blank(),
+          panel.grid.major.y=element_blank(),
+          panel.grid.minor.x=element_blank(),
+          panel.grid.major.x=element_blank())+
+scale_fill_manual("legend", values = c("No" = "darkgoldenrod1", "Yes" = "indianred4"))+
+guides(fill=guide_legend(title="Searched"))
+#dev.print(device=postscript, "trafficstopssearchesSD.eps", onefile=FALSE, horizontal=FALSE)
+
+library(dplyr)
+check<-all_data3 %>% count(subject_race, subject_sex, searched) %>%    # Group by region and species, then count number in each group
+         mutate(pct=n/sum(n),               # Calculate percent within each region
+                ypos = cumsum(n) - 0.5*n)
+print(tbl_df(check),n=30) # see Y probabilities
