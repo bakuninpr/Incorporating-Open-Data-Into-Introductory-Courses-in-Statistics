@@ -7,3 +7,5 @@ their students more effectively. We present excerpts from case studies that show
 and others. Data wrangling and discussion of results are recognized as important case study components. Thus, the open data based case studies attend most GAISE College Report 
 recommendations. Reproducible R code is made available for each case study. Example uses of open data in more advanced courses in statistics are also described. 
 Supplementary materials for this article are available here.
+
+For more R codes using open data check out https://github.com/bakuninpr/Principles-of-Managerial-Statistics-and-Data-Science
